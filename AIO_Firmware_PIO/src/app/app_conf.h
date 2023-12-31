@@ -18,19 +18,19 @@
 #endif
 
 // 纪念日APP
-#define APP_ANNIVERSARY_USE 1
+#define APP_ANNIVERSARY_USE 0
 #if APP_ANNIVERSARY_USE
 #include "app/anniversary/anniversary.h"
 #endif
 
 // bilibili粉丝APP
-#define APP_BILIBILI_FANS_USE 1
+#define APP_BILIBILI_FANS_USE 0
 #if APP_BILIBILI_FANS_USE
 #include "app/bilibili_fans/bilibili.h"
 #endif
 
 // 文件管理器APP
-#define APP_FILE_MANAGER_USE 1
+#define APP_FILE_MANAGER_USE 0
 #if APP_FILE_MANAGER_USE
 #include "app/file_manager/file_manager.h"
 #endif
@@ -42,13 +42,13 @@
 #endif
 
 // 心跳APP
-#define APP_HEARTBEAT_USE 1
+#define APP_HEARTBEAT_USE 0
 #if APP_HEARTBEAT_USE
 #include "app/heartbeat/heartbeat.h"
 #endif
 
 // 特效动画APP
-#define APP_IDEA_ANIM_USE 1
+#define APP_IDEA_ANIM_USE 0
 #if APP_IDEA_ANIM_USE
 #include "app/idea_anim/idea.h"
 #endif
@@ -66,13 +66,13 @@
 #endif
 
 // 遥感器APP
-#define APP_PC_RESOURCE_USE 1
+#define APP_PC_RESOURCE_USE 0
 #if APP_PC_RESOURCE_USE
 #include "app/pc_resource/pc_resource.h"
 #endif
 
 // 屏幕分享/投屏APP
-#define APP_SCREEN_SHARE_USE 1
+#define APP_SCREEN_SHARE_USE 0
 #if APP_SCREEN_SHARE_USE
 #include "app/screen_share/screen_share.h"
 #endif
@@ -91,7 +91,7 @@
 #endif
 
 // 股票行情查看APP
-#define APP_STOCK_MARKET_USE 1
+#define APP_STOCK_MARKET_USE 0
 #if APP_STOCK_MARKET_USE
 #include "app/stockmarket/stockmarket.h"
 #endif
@@ -105,9 +105,14 @@
 
 // 天气(旧)APP
 // 如flash空间不够，首选配置天气app二选一，腾出大量flash空间
-#define APP_WEATHER_OLD_USE 1
+#define APP_WEATHER_OLD_USE 0
 #if APP_WEATHER_OLD_USE
 #include "app/weather_old/weather_old.h"
+#endif
+
+#define APP_CLOCK_USE 1
+#if APP_CLOCK_USE
+#include "app/clock/clock.h"
 #endif
 
 #endif

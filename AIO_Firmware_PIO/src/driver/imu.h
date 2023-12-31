@@ -2,7 +2,8 @@
 #define IMU_H
 
 #include <I2Cdev.h>
-#include <MPU6050.h>
+// #include <MPU6050.h>
+#include "MPU6050_6Axis_MotionApps20.h"
 #include "lv_port_indev.h"
 #include <list>
 #define ACTION_HISTORY_BUF_LEN 5
@@ -50,6 +51,7 @@ struct ImuAction
     volatile ACTIVE_TYPE active;
     boolean isValid;
     boolean long_time;
+    
     int16_t v_ax; // v表示虚拟参数（用于调整6050的初始方位）
     int16_t v_ay;
     int16_t v_az;
@@ -68,10 +70,19 @@ private:
 
 public:
     ImuAction action_info;
+    union
+    {
+        struct
+        {
+            float yaw, pitch, roll;
+        }attitude;
+        float ypr[3];
+    };
+
     // 用来储存历史动作
     // std::list<ACTIVE_TYPE> act_info_history;
-    ACTIVE_TYPE act_info_history[ACTION_HISTORY_BUF_LEN];
-    int act_info_history_ind; // 标志储存的位置
+    // ACTIVE_TYPE act_info_history[ACTION_HISTORY_BUF_LEN];
+    // int act_info_history_ind; // 标志储存的位置
 
 public:
     IMU();

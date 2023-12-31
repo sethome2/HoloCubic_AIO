@@ -28,7 +28,7 @@ static ExampleAppRunData *run_data = NULL;
 // 考虑到所有的APP公用内存，尽量减少 forever_data 的数据占用
 static ExampleAppForeverData forever_data;
 
-static int example_init(AppController *sys)
+static int clock_init(AppController *sys)
 {
     // 初始化运行时的参数
     example_gui_init();
@@ -51,7 +51,7 @@ static int example_init(AppController *sys)
     return 0;
 }
 
-static void example_process(AppController *sys,
+static void clock_process(AppController *sys,
                             const ImuAction *act_info)
 {
     if (RETURN == act_info->active)
@@ -134,5 +134,5 @@ static void example_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ example_app = {EXAMPLE_APP_NAME, &app_example, "Author HQ\nVersion 2.0.0\n",
-                       example_init, example_process, example_background_task,
+                       clock_init, clock_process, example_background_task,
                        example_exit_callback, example_message_handle};

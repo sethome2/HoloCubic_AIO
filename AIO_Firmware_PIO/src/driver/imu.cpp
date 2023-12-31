@@ -1,4 +1,5 @@
 #include "imu.h"
+// #include "MPU6050_6Axis_MotionApps20.h"
 #include "common.h"
 
 const char *active_type_info[] = {"TURN_RIGHT", "RETURN",
@@ -11,13 +12,13 @@ IMU::IMU()
     action_info.isValid = false;
     action_info.active = ACTIVE_TYPE::UNKNOWN;
     action_info.long_time = true;
-    // 初始化数据
-    for (int pos = 0; pos < ACTION_HISTORY_BUF_LEN; ++pos)
-    {
-        // act_info_history.push_back(UNKNOWN);
-        act_info_history[pos] = UNKNOWN;
-    }
-    act_info_history_ind = ACTION_HISTORY_BUF_LEN - 1;
+    // // 初始化数据
+    // for (int pos = 0; pos < ACTION_HISTORY_BUF_LEN; ++pos)
+    // {
+    //     // act_info_history.push_back(UNKNOWN);
+    //     act_info_history[pos] = UNKNOWN;
+    // }
+    // act_info_history_ind = ACTION_HISTORY_BUF_LEN - 1;
     this->order = 0; // 表示方位
 }
 
@@ -43,31 +44,36 @@ void IMU::init(uint8_t order, uint8_t auto_calibration,
     Serial.print(F("Initialization MPU6050 now, Please don't move.\n"));
     mpu.initialize();
 
-    if (auto_calibration == 0)
-    {
-        // supply your own gyro offsets here, scaled for min sensitivity
-        mpu.setXGyroOffset(mpu_cfg->x_gyro_offset);
-        mpu.setYGyroOffset(mpu_cfg->y_gyro_offset);
-        mpu.setZGyroOffset(mpu_cfg->z_gyro_offset);
-        mpu.setXAccelOffset(mpu_cfg->x_accel_offset);
-        mpu.setYAccelOffset(mpu_cfg->y_accel_offset);
-        mpu.setZAccelOffset(mpu_cfg->z_accel_offset); // 1688 factory default for my test chip
-    }
-    else
-    {
-        // 启动自动校准
-        // 7次循环自动校正
-        mpu.CalibrateAccel(7);
-        mpu.CalibrateGyro(7);
-        mpu.PrintActiveOffsets();
+    // if (auto_calibration == 0)
+    // {
+    //     // supply your own gyro offsets here, scaled for min sensitivity
+    //     mpu.setXGyroOffset(mpu_cfg->x_gyro_offset);
+    //     mpu.setYGyroOffset(mpu_cfg->y_gyro_offset);
+    //     mpu.setZGyroOffset(mpu_cfg->z_gyro_offset);
+    //     mpu.setXAccelOffset(mpu_cfg->x_accel_offset);
+    //     mpu.setYAccelOffset(mpu_cfg->y_accel_offset);
+    //     mpu.setZAccelOffset(mpu_cfg->z_accel_offset); // 1688 factory default for my test chip
+    // }
+    // else
+    // {
+    //     // 启动自动校准
+    //     // 7次循环自动校正
+    //     mpu.CalibrateAccel(7);
+    //     mpu.CalibrateGyro(7);
+    //     mpu.PrintActiveOffsets();
 
-        mpu_cfg->x_gyro_offset = mpu.getXGyroOffset();
-        mpu_cfg->y_gyro_offset = mpu.getYGyroOffset();
-        mpu_cfg->z_gyro_offset = mpu.getZGyroOffset();
-        mpu_cfg->x_accel_offset = mpu.getXAccelOffset();
-        mpu_cfg->y_accel_offset = mpu.getYAccelOffset();
-        mpu_cfg->z_accel_offset = mpu.getZAccelOffset();
-    }
+    //     mpu_cfg->x_gyro_offset = mpu.getXGyroOffset();
+    //     mpu_cfg->y_gyro_offset = mpu.getYGyroOffset();
+    //     mpu_cfg->z_gyro_offset = mpu.getZGyroOffset();
+    //     mpu_cfg->x_accel_offset = mpu.getXAccelOffset();
+    //     mpu_cfg->y_accel_offset = mpu.getYAccelOffset();
+    //     mpu_cfg->z_accel_offset = mpu.getZAccelOffset();
+    // }
+
+    // 启动DMP
+    Serial.println(F("Initializing DMP..."));
+    mpu.dmpInitialize();
+    mpu.setDMPEnabled(true);
 
     Serial.print(F("Initialization MPU6050 success.\n"));
 }
@@ -165,95 +171,117 @@ ImuAction *IMU::update(int interval)
 }
 
 ImuAction *IMU::getAction(void)
-{
-    // 基本方法: 通过对近来的动作数据简单的分析，确定出动作的类型
-    ImuAction tmp_info;
-    getVirtureMotion6(&tmp_info);
+{   
+    // modified by sethome add DMP
+    static uint8_t fifoBuffer[64]; // FIFO storage buffer
+    static Quaternion q;           // [w, x, y, z]
+    static VectorFloat gravity;    // [x, y, z]            gravity vector
+    static float last_yaw = 0.0f;
 
-    // Serial.printf("gx = %d\tgy = %d\tgz = %d", tmp_info.v_gx, tmp_info.v_gy, tmp_info.v_gz);
-    // Serial.printf("\tax = %d\tay = %d\taz = %d\n", tmp_info.v_ax, tmp_info.v_ay, tmp_info.v_az);
+    mpu.dmpGetCurrentFIFOPacket(fifoBuffer);
+    mpu.dmpGetQuaternion(&q, fifoBuffer);
+    mpu.dmpGetGravity(&gravity, &q);
+    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-    tmp_info.active = ACTIVE_TYPE::UNKNOWN;
+    getVirtureMotion6(&action_info);
 
-    // 原先判断的只是加速度，现在要加上陀螺仪
-    if (ACTIVE_TYPE::UNKNOWN == tmp_info.active)
-    {
-        if (tmp_info.v_ay > 4000)
-        {
-            tmp_info.active = ACTIVE_TYPE::TURN_LEFT;
-        }
-        else if (tmp_info.v_ay < -4000)
-        {
-            tmp_info.active = ACTIVE_TYPE::TURN_RIGHT;
-        }
-        else if (tmp_info.v_ay > 1000 || tmp_info.v_ay < -1000)
-        {
-            // 震动检测
-            tmp_info.active = ACTIVE_TYPE::SHAKE;
-        }
-    }
+    if (attitude.roll / M_PI * 180 > 25)
+        action_info.active = ACTIVE_TYPE::TURN_LEFT;
+    else if (attitude.roll / M_PI * 180 < -25)
+        action_info.active = ACTIVE_TYPE::TURN_RIGHT;
+    else if (attitude.pitch / M_PI * 180 > 35)
+        action_info.active = ACTIVE_TYPE::GO_FORWORD;
+    else if (attitude.pitch / M_PI * 180 < -20)
+        action_info.active = ACTIVE_TYPE::RETURN;
+    else
+        action_info.active = ACTIVE_TYPE::UNKNOWN;
+    
+    if (last_yaw - (attitude.yaw / M_PI * 180) > 30 && action_info.active == ACTIVE_TYPE::UNKNOWN)
+        action_info.active = ACTIVE_TYPE::TURN_LEFT;
+    if (last_yaw - (attitude.yaw / M_PI * 180) < -30&& action_info.active == ACTIVE_TYPE::UNKNOWN)
+        action_info.active = ACTIVE_TYPE::TURN_RIGHT;
+    
+    last_yaw = attitude.yaw / M_PI * 180;
 
-    if (ACTIVE_TYPE::UNKNOWN == tmp_info.active)
-    {
-        if (tmp_info.v_ax > 5000)
-        {
-            tmp_info.active = ACTIVE_TYPE::UP;
-        }
-        else if (tmp_info.v_ax < -5000)
-        {
-            tmp_info.active = ACTIVE_TYPE::DOWN;
-        }
-        else if (action_info.v_ax > 1000 || action_info.v_ax < -1000)
-        {
-            // 震动检测
-            tmp_info.active = ACTIVE_TYPE::SHAKE;
-        }
-    }
+    // // 原先判断的只是加速度，现在要加上陀螺仪
+    // if (ACTIVE_TYPE::UNKNOWN == tmp_info.active)
+    // {
+    //     if (tmp_info.v_ay > 4000)
+    //     {
+    //         tmp_info.active = ACTIVE_TYPE::TURN_LEFT;
+    //     }
+    //     else if (tmp_info.v_ay < -4000)
+    //     {
+    //         tmp_info.active = ACTIVE_TYPE::TURN_RIGHT;
+    //     }
+    //     else if (tmp_info.v_ay > 1000 || tmp_info.v_ay < -1000)
+    //     {
+    //         // 震动检测
+    //         tmp_info.active = ACTIVE_TYPE::SHAKE;
+    //     }
+    // }
 
-    // 储存当前检测的动作数据到动作缓冲区中
-    act_info_history_ind = (act_info_history_ind + 1) % ACTION_HISTORY_BUF_LEN;
-    int index = act_info_history_ind;
-    act_info_history[index] = tmp_info.active;
+    // if (ACTIVE_TYPE::UNKNOWN == tmp_info.active)
+    // {
+    //     if (tmp_info.v_ax > 5000)
+    //     {
+    //         tmp_info.active = ACTIVE_TYPE::UP;
+    //     }
+    //     else if (tmp_info.v_ax < -5000)
+    //     {
+    //         tmp_info.active = ACTIVE_TYPE::DOWN;
+    //     }
+    //     else if (action_info.v_ax > 1000 || action_info.v_ax < -1000)
+    //     {
+    //         // 震动检测
+    //         tmp_info.active = ACTIVE_TYPE::SHAKE;
+    //     }
+    // }
 
-    // 本次流程的动作识别
-    if (!action_info.isValid)
-    {
-        bool isHoldDown = false; // 长按的标志位
-        // 本次流程的动作识别
-        int second = (index + ACTION_HISTORY_BUF_LEN - 1) % ACTION_HISTORY_BUF_LEN;
-        int third = (index + ACTION_HISTORY_BUF_LEN - 2) % ACTION_HISTORY_BUF_LEN;
-        // 先识别"短按" （注：不要写成else if）
-        if (ACTIVE_TYPE::UNKNOWN != tmp_info.active)
-        {
-            action_info.isValid = 1;
-            action_info.active = tmp_info.active;
-        }
-        // 识别"长按","长按"相对"短按"高级（所以键值升级放在短按之后）
-        if (act_info_history[index] == act_info_history[second] && act_info_history[second] == act_info_history[third])
-        {
-            // 目前只识别前后的长按
-            if (ACTIVE_TYPE::UP == tmp_info.active)
-            {
-                isHoldDown = true;
-                action_info.isValid = 1;
-                action_info.active = ACTIVE_TYPE::GO_FORWORD;
-            }
-            else if (ACTIVE_TYPE::DOWN == tmp_info.active)
-            {
-                isHoldDown = true;
-                action_info.isValid = 1;
-                action_info.active = ACTIVE_TYPE::RETURN;
-            }
-            // 如需左右的长按可在此处添加"else if"的逻辑
+    // // 储存当前检测的动作数据到动作缓冲区中
+    // act_info_history_ind = (act_info_history_ind + 1) % ACTION_HISTORY_BUF_LEN;
+    // int index = act_info_history_ind;
+    // act_info_history[index] = tmp_info.active;
 
-            if (isHoldDown)
-            {
-                // 本次识别为长按，则手动清除识别过的历史数据 避免对下次动作识别的影响
-                act_info_history[second] = ACTIVE_TYPE::UNKNOWN;
-                act_info_history[third] = ACTIVE_TYPE::UNKNOWN;
-            }
-        }
-    }
+    // // 本次流程的动作识别
+    // if (!action_info.isValid)
+    // {
+    //     bool isHoldDown = false; // 长按的标志位
+    //     // 本次流程的动作识别
+    //     int second = (index + ACTION_HISTORY_BUF_LEN - 1) % ACTION_HISTORY_BUF_LEN;
+    //     int third = (index + ACTION_HISTORY_BUF_LEN - 2) % ACTION_HISTORY_BUF_LEN;
+    //     // 先识别"短按" （注：不要写成else if）
+    //     if (ACTIVE_TYPE::UNKNOWN != tmp_info.active)
+    //     {
+    //         action_info.isValid = 1;
+    //         action_info.active = tmp_info.active;
+    //     }
+    //     // 识别"长按","长按"相对"短按"高级（所以键值升级放在短按之后）
+    //     if (act_info_history[index] == act_info_history[second] && act_info_history[second] == act_info_history[third])
+    //     {
+    //         // 目前只识别前后的长按
+    //         if (ACTIVE_TYPE::UP == tmp_info.active)
+    //         {
+    //             isHoldDown = true;
+    //             action_info.isValid = 1;
+    //             action_info.active = ACTIVE_TYPE::GO_FORWORD;
+    //         }
+    //         else if (ACTIVE_TYPE::DOWN == tmp_info.active)
+    //         {
+    //             isHoldDown = true;
+    //             action_info.isValid = 1;
+    //             action_info.active = ACTIVE_TYPE::RETURN;
+    //         }
+    //         // 如需左右的长按可在此处添加"else if"的逻辑
+
+    //         if (isHoldDown)
+    //         {
+    //             // 本次识别为长按，则手动清除识别过的历史数据 避免对下次动作识别的影响
+    //             act_info_history[second] = ACTIVE_TYPE::UNKNOWN;
+    //             act_info_history[third] = ACTIVE_TYPE::UNKNOWN;
+    //         }
+    //     }
+    // }
 
     return &action_info;
 }

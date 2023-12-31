@@ -88,7 +88,7 @@ void display_settings_init(void)
     lv_label_set_recolor(new_ver_label, true); //先得使能文本重绘色功能
     lv_label_set_long_mode(new_ver_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_align(new_ver_label, LV_ALIGN_CENTER, 0, 60);
-    lv_label_set_text_fmt(new_ver_label, "#ff0000 Is the latest version!");
+    lv_label_set_text_fmt(new_ver_label, "#ff0000");
 
     author_label = lv_label_create(settings_scr);
     lv_obj_add_style(author_label, &info_style, LV_STATE_DEFAULT);
@@ -106,15 +106,9 @@ void display_settings(const char *cur_ver, const char *new_ver, lv_scr_load_anim
 
     lv_label_set_text_fmt(cur_ver_label, "Now Version:  #ff0000 %s#", cur_ver);
 
-    lv_label_set_text(qq_label, "AIO QQ: 755143193");
+    lv_label_set_text(qq_label, "Modified by sethome");
 
-    if (strcmp(cur_ver, &new_ver[2]) < 0)
-    {
-        lv_label_set_text_fmt(new_ver_label, "Please update your AIO to #ff0000 %s#", new_ver);
-        lv_obj_align(new_ver_label, LV_ALIGN_CENTER, 0, 60);
-    }
-
-    lv_label_set_text(author_label, "@ClimbSnail");
+    lv_label_set_text(author_label, "@sethome");
 }
 
 void settings_gui_del(void)

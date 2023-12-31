@@ -102,7 +102,7 @@ void setup()
     rgb.setBrightness(0.05).setRGB(0, 64, 64);
 
     /*** Init ambient-light sensor ***/
-    ambLight.init(ONE_TIME_H_RESOLUTION_MODE);
+    // ambLight.init(ONE_TIME_H_RESOLUTION_MODE);
 
     /*** Init micro SD-Card ***/
     tf.init();
@@ -131,6 +131,10 @@ void setup()
 #endif /*LV_USE_LOG*/
 
     app_controller->init();
+
+#if APP_CLOCK_USE
+    app_controller->app_install(&clock_app);
+#endif
 
     // 将APP"安装"到controller里
 #if APP_WEATHER_USE
@@ -178,6 +182,7 @@ void setup()
 #if APP_PC_RESOURCE_USE
     app_controller->app_install(&pc_resource_app);
 #endif
+
     // 自启动APP
     app_controller->app_auto_start();
 
@@ -207,7 +212,7 @@ void setup()
     act_info = mpu.getAction();
     // 定义一个mpu6050的动作检测定时器
     xTimerAction = xTimerCreate("Action Check",
-                                200 / portTICK_PERIOD_MS,
+                                400 / portTICK_PERIOD_MS,
                                 pdTRUE, (void *)0, actionCheckHandle);
     xTimerStart(xTimerAction, 0);
 }
